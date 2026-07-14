@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UniServe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#E9EAE4; --surface:#FFFFFF; --surface-2:#F2F2EC;
+    --ink:#20242A; --ink-soft:#5B646B; --border:#CBCEC3;
+    --amber:#D0932A; --amber-deep:#9A6A16; --amber-ink:#3A2708;
+    --green:#3E8B5C; --green-bg:#DEEBE1;
+    --red:#B8433A; --red-bg:#F3DEDB;
+    --blue:#4B6C82; --blue-bg:#E1E7EA;
+    --shadow: 0 1px 2px rgba(20,24,28,.06), 0 2px 8px rgba(20,24,28,.05);
+  }
+  html[data-theme="dark"]{
+    --bg:#181C1F; --surface:#23282C; --surface-2:#2A3034;
+    --ink:#ECE9DF; --ink-soft:#9CA39D; --border:#3A4046;
+    --amber:#F0B453; --amber-deep:#F0B453; --amber-ink:#2A1B04;
+    --green:#5FBE87; --green-bg:#233029;
+    --red:#E2685D; --red-bg:#332423;
+    --blue:#8FB0C4; --blue-bg:#232D32;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0; height:100%; font-family:'IBM Plex Sans',sans-serif; background:var(--bg); color:var(--ink);}
+  #app{max-width:480px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; position:relative; background:var(--bg);}
+  .hidden{display:none !important;}
+
+  /* ---- login ---- */
+  #loginScreen{flex:1; display:flex; flex-direction:column; justify-content:center; padding:0 26px;
+    background:linear-gradient(180deg, var(--surface-2), var(--bg) 60%);}
+  .plate{align-self:center; border:3px solid var(--amber); color:var(--ink); padding:10px 22px; border-radius:10px;
+    font-family:'Bebas Neue',sans-serif; font-size:34px; letter-spacing:3px; margin-bottom:6px; background:var(--surface);}
+  .plate span{color:var(--amber);}
+  .subline{text-align:center; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:30px; font-weight:600;}
+  .field{margin-bottom:14px;}
+  .field label{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); display:block; margin-bottom:6px;}
+  .field input{width:100%; background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:12px 14px;
+    font-family:'IBM Plex Mono',monospace; font-size:15px; color:var(--ink);}
+  .btn-primary{margin-top:8px; background:var(--amber); color:var(--amber-ink); text-align:center; padding:14px; border-radius:10px;
+    font-weight:700; letter-spacing:.03em; font-size:14px; box-shadow:var(--shadow); cursor:pointer; border:none; width:100%;}
+  #loginError{color:var(--red); font-size:12px; text-align:center; margin-top:10px; min-height:16px;}
+
+  /* ---- app shell ---- */
+  #appHeader{background:var(--surface); padding:16px 16px 12px; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:20;}
+  .appheader-row{display:flex; align-items:center; justify-content:space-between;}
+  .apptitle{font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:1.5px;}
+  .apptitle small{display:block; font-family:'IBM Plex Sans'; font-size:10px; letter-spacing:.08em; color:var(--ink-soft); font-weight:600; text-transform:uppercase;}
+  .icons{display:flex; gap:8px;}
+  .iconbtn{width:34px; height:34px; border-radius:9px; background:var(--surface-2); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; font-size:15px; cursor:pointer;}
+  .searchbar{margin-top:12px; background:var(--surface-2); border:1px solid var(--border); border-radius:10px;
+    padding:9px 12px; display:flex; gap:8px; align-items:center;}
+  .searchbar input{border:none; background:transparent; font-size:13px; color:var(--ink); width:100%; outline:none;}
+  .chips{display:flex; gap:7px; padding:12px 16px 4px; overflow-x:auto; background:var(--surface);}
+  .chip{flex:none; font-size:11.5px; font-weight:600; padding:6px 12px; border-radius:20px; border:1px solid var(--border);
+    background:var(--surface-2); color:var(--ink-soft); white-space:nowrap; cursor:pointer;}
+  .chip.on{background:var(--ink); color:var(--bg); border-color:var(--ink);}
+  #jobList{flex:1; padding:14px 14px 100px; overflow-y:auto; display:flex; flex-direction:column; gap:14px;}
+  .emptystate{text-align:center; color:var(--ink-soft); font-size:13px; padding:60px 20px;}
+
+  .docket{background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow);
+    position:relative; overflow:hidden; cursor:pointer;}
+  .docket-top{padding:14px 14px 12px;}
+  .veh{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:17px; letter-spacing:.5px;}
+  .cust{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .catbadge{font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+    background:var(--blue-bg); color:var(--blue); padding:3px 8px; border-radius:5px; display:inline-block;}
+  .stamp{position:absolute; top:10px; right:12px; transform:rotate(-6deg); border:2.5px solid var(--red); color:var(--red);
+    font-family:'Bebas Neue',sans-serif; font-size:12px; letter-spacing:1px; padding:3px 8px; border-radius:6px; opacity:.9; text-transform:uppercase;}
+  .stamp.green{border-color:var(--green); color:var(--green);}
+  .stamp.amber{border-color:var(--amber-deep); color:var(--amber-deep);}
+  .perf{height:14px; position:relative; background:repeating-linear-gradient(to right, transparent 0 6px, var(--border) 6px 7px); margin:0 14px;}
+  .perf::before, .perf::after{content:''; position:absolute; top:-7px; width:14px; height:14px; border-radius:50%; background:var(--bg);}
+  .perf::before{left:-21px;} .perf::after{right:-21px;}
+  .docket-bottom{padding:12px 14px 14px;}
+  .stagebar{display:flex; align-items:center;}
+  .stagenode{display:flex; flex-direction:column; align-items:center; flex:1; position:relative;}
+  .stagenode .tick{width:20px; height:20px; border-radius:50%; background:var(--surface-2); border:2px solid var(--border);
+    font-family:'IBM Plex Mono',monospace; font-size:9px; display:flex; align-items:center; justify-content:center; color:var(--ink-soft); font-weight:700;}
+  .stagenode.done .tick{background:var(--green); border-color:var(--green); color:#fff;}
+  .stagenode.now .tick{background:var(--amber); border-color:var(--amber); color:var(--amber-ink);}
+  .stagenode .lbl{font-size:8px; color:var(--ink-soft); margin-top:4px; text-align:center; text-transform:uppercase; letter-spacing:.02em; line-height:1.2;}
+  .stageline{position:absolute; top:9px; left:-50%; width:100%; height:2px; background:var(--border); z-index:0;}
+  .stagenode.done .stageline{background:var(--green);}
+  .docket-foot{display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:11px; color:var(--ink-soft);}
+  .daychip{background:var(--surface-2); border:1px solid var(--border); border-radius:6px; padding:3px 7px; font-weight:600;}
+
+  #fab{position:fixed; max-width:480px; margin:0 auto; right:calc(50% - 240px + 20px); bottom:22px; width:54px; height:54px;
+    border-radius:16px; background:var(--amber); color:var(--amber-ink); font-size:26px; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 8px 20px rgba(0,0,0,.35); font-weight:700; cursor:pointer; z-index:30; border:none;}
+
+  /* ---- modal ---- */
+  .modal-overlay{position:fixed; inset:0; background:rgba(10,12,14,.55); z-index:100; display:flex; align-items:flex-end; justify-content:center;}
+  .modal-overlay.hidden{display:none;}
+  .modal{background:var(--bg); width:100%; max-width:480px; max-height:92vh; border-radius:20px 20px 0 0; overflow-y:auto; padding-bottom:24px;}
+  .modal-header{position:sticky; top:0; background:var(--surface); padding:16px; border-bottom:1px solid var(--border);
+    display:flex; justify-content:space-between; align-items:center; z-index:2;}
+  .modal-title{font-family:'Bebas Neue',sans-serif; font-size:20px; letter-spacing:1px;}
+  .modal-body{padding:16px; display:flex; flex-direction:column; gap:14px;}
+  .panel{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:13px; box-shadow:var(--shadow);}
+  .section-title{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-soft); margin:2px 0 8px;}
+  select, .modal-body input, .modal-body textarea{width:100%; background:var(--surface-2); border:1px solid var(--border);
+    border-radius:8px; padding:10px 12px; font-family:'IBM Plex Sans'; font-size:13px; color:var(--ink);}
+  .row-btn{display:flex; align-items:center; justify-content:space-between; padding:11px 13px; background:var(--surface);
+    border:1px solid var(--border); border-radius:10px; font-size:13px; font-weight:600; box-shadow:var(--shadow); cursor:pointer;}
+  .row-btn .arrow{color:var(--ink-soft);}
+  .primary-cta{background:var(--amber); color:var(--amber-ink); text-align:center; padding:13px; border-radius:10px;
+    font-weight:700; font-size:13.5px; letter-spacing:.02em; cursor:pointer; border:none; width:100%;}
+  .primary-cta:disabled{opacity:.5; cursor:not-allowed;}
+  .photorow{display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;}
+  .photothumb{width:58px; height:58px; border-radius:8px; background:var(--surface-2); border:1px dashed var(--border);
+    display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--ink-soft); cursor:pointer; overflow:hidden;}
+  .photothumb img{width:100%; height:100%; object-fit:cover;}
+  .histrow{font-size:12px; padding:8px 0; border-bottom:1px dashed var(--border); display:flex; justify-content:space-between; gap:8px;}
+  .histrow:last-child{border-bottom:none;}
+  .histrow .who{color:var(--ink-soft); font-size:11px;}
+  .toast{position:fixed; bottom:26px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--bg);
+    padding:10px 18px; border-radius:20px; font-size:12.5px; z-index:200; box-shadow:var(--shadow);}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- LOGIN -->
+  <div id="loginScreen">
+    <div class="plate">UNI<span>SERVE</span></div>
+    <div class="subline">Workshop Access</div>
+    <div class="field"><label>Username</label><input id="loginUser" type="text" autocomplete="off"></div>
+    <div class="field"><label>PIN</label><input id="loginPin" type="password" inputmode="numeric" maxlength="6"></div>
+    <button class="btn-primary" onclick="doLogin()">SIGN IN</button>
+    <div id="loginError"></div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="mainApp" class="hidden" style="display:flex; flex-direction:column; flex:1;">
+    <div id="appHeader">
+      <div class="appheader-row">
+        <div class="apptitle">Job List<small id="jobCountLbl">0 open</small></div>
+        <div class="icons">
+          <div class="iconbtn" onclick="toggleTheme()">🌓</div>
+          <div class="iconbtn" onclick="loadJobs()">🔄</div>
+          <div class="iconbtn" onclick="logout()">⎋</div>
+        </div>
+      </div>
+      <div class="searchbar">🔍 <input id="searchBox" placeholder="Search vehicle no. or customer" oninput="renderJobs()"></div>
+    </div>
+    <div class="chips" id="chipsRow"></div>
+    <div id="jobList"></div>
+    <button id="fab" onclick="openAddJob()">+</button>
+  </div>
+
+</div>
+
+<!-- ADD JOB MODAL -->
+<div class="modal-overlay hidden" id="addJobModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">New Intake</div>
+      <div class="iconbtn" onclick="closeModal('addJobModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Job ID</label><input id="njJobId" placeholder="e.g. A-1043"></div>
+      <div class="field"><label>Vehicle No</label><input id="njVehicleNo" placeholder="TN 47 ..."></div>
+      <div class="field"><label>Customer Name</label><input id="njCustomer"></div>
+      <div class="field"><label>Phone</label><input id="njPhone" inputmode="numeric" maxlength="10"></div>
+      <div class="field"><label>Vehicle Type</label><select id="njVehicleType"></select></div>
+      <div class="field"><label>Service Category</label><select id="njCategory" onchange="previewStages()"></select></div>
+      <div class="field"><label>Model</label><select id="njModel"></select></div>
+      <div class="panel" id="stagePreview" style="display:none;">
+        <div class="section-title">This job will follow</div>
+        <div id="stagePreviewText" style="font-size:12px; color:var(--ink-soft);"></div>
+      </div>
+      <button class="primary-cta" onclick="submitAddJob()">CREATE JOB CARD</button>
+    </div>
+  </div>
+</div>
+
+<!-- JOB DETAIL MODAL -->
+<div class="modal-overlay hidden" id="jobDetailModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="jdVeh">—</div>
+        <div style="font-size:11px; color:var(--ink-soft);" id="jdSub">—</div>
+      </div>
+      <div class="iconbtn" onclick="closeModal('jobDetailModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="panel">
+        <div class="section-title">Current Stage</div>
+        <div class="stagebar" id="jdStageBar"></div>
+      </div>
+      <div class="panel">
+        <div class="section-title">Assign Mechanic</div>
+        <select id="jdMechanic"></select>
+      </div>
+      <div class="panel">
+        <div class="section-title">Photo Proof</div>
+        <div class="photorow" id="jdPhotos"></div>
+        <input type="file" id="jdPhotoInput" accept="image/*" capture="environment" class="hidden" onchange="handlePhotoSelected()">
+      </div>
+      <div class="row-btn" onclick="toggleHistory()"><span>🕘 View Full History</span><span class="arrow" id="histArrow">›</span></div>
+      <div class="panel hidden" id="historyPanel"></div>
+      <button class="primary-cta" id="jdNextBtn" onclick="moveNextStage()">MOVE TO NEXT STAGE →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====== CONFIG ======
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxmacnSQXjbpGlV31lKcY4Jiaw1xcGeBWBvIwaU2scA9DjYE0D9QFZKeolyD2o_jVdj3w/exec';
+
+// ====== STATE ======
+let currentUser = null;   // {username, fullName, role}
+let lists = { mechanics: [], serviceCategories: [], models: [], vehicleTypes: [], stageFlows: {} };
+let jobs = [];
+let activeChip = 'all';
+let activeJobId = null;
+
+// ====== API HELPERS ======
+function apiGet(action, params) {
+  params = params || {};
+  params.action = action;
+  const qs = Object.keys(params).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k])).join('&');
+  return fetch(GAS_URL + '?' + qs).then(r => r.json());
+}
+function apiPost(payload) {
+  return fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) }).then(r => r.json());
+}
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2200);
+}
+
+// ====== THEME ======
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  const next = isDark ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('uniserve_theme', next);
+}
+(function initTheme() {
+  const saved = localStorage.getItem('uniserve_theme');
+  const preferred = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', preferred);
+})();
+
+// ====== SESSION ======
+function doLogin() {
+  const username = document.getElementById('loginUser').value.trim();
+  const pin = document.getElementById('loginPin').value.trim();
+  if (!username || !pin) { showLoginError('Enter username and PIN'); return; }
+  apiGet('login', { username, pin }).then(res => {
+    if (!res.success) { showLoginError(res.error || 'Login failed'); return; }
+    currentUser = { username, fullName: res.fullName, role: res.role };
+    localStorage.setItem('uniserve_session', JSON.stringify(currentUser));
+    enterApp();
+  }).catch(() => showLoginError('Network error — check GAS_URL'));
+}
+function showLoginError(msg) { document.getElementById('loginError').textContent = msg; }
+function logout() {
+  localStorage.removeItem('uniserve_session');
+  currentUser = null;
+  document.getElementById('mainApp').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+}
+function enterApp() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('mainApp').classList.remove('hidden');
+  loadInitialData();
+}
+(function restoreSession() {
+  const saved = localStorage.getItem('uniserve_session');
+  if (saved) { currentUser = JSON.parse(saved); enterApp(); }
+})();
+
+// ====== INITIAL DATA ======
+function loadInitialData() {
+  Promise.all([apiGet('getLists'), apiGet('getJobs')]).then(([listRes, jobRes]) => {
+    lists = listRes;
+    jobs = jobRes;
+    populateDropdowns();
+    renderChips();
+    renderJobs();
+  }).catch(() => toast('Could not load data — check GAS_URL'));
+}
+function loadJobs() {
+  apiGet('getJobs').then(res => { jobs = res; renderJobs(); toast('Synced'); });
+}
+function populateDropdowns() {
+  fillSelect('njVehicleType', lists.vehicleTypes);
+  fillSelect('njCategory', lists.serviceCategories);
+  fillSelect('njModel', lists.models);
+  fillSelect('jdMechanic', lists.mechanics);
+}
+function fillSelect(id, options) {
+  const el = document.getElementById(id);
+  el.innerHTML = options.map(o => `<option value="${o}">${o}</option>`).join('');
+}
+function previewStages() {
+  const cat = document.getElementById('njCategory').value;
+  const stages = lists.stageFlows[cat] || [];
+  document.getElementById('stagePreview').style.display = stages.length ? 'block' : 'none';
+  document.getElementById('stagePreviewText').textContent = stages.join(' → ');
+}
+
+// ====== FILTER CHIPS ======
+function renderChips() {
+  const chips = [{ key: 'all', label: 'All' }, { key: 'working', label: 'Working' }, { key: 'final', label: 'Delivered' }]
+    .concat(lists.serviceCategories.map(c => ({ key: 'cat:' + c, label: c })));
+  document.getElementById('chipsRow').innerHTML = chips.map(c =>
+    `<div class="chip ${activeChip === c.key ? 'on' : ''}" onclick="setChip('${c.key}')">${c.label}</div>`
+  ).join('');
+}
+function setChip(key) { activeChip = key; renderChips(); renderJobs(); }
+
+// ====== JOB LIST ======
+function renderJobs() {
+  const search = document.getElementById('searchBox').value.trim().toLowerCase();
+  let visible = jobs.filter(j => {
+    const stages = lists.stageFlows[j.ServiceCategory] || [];
+    const isFinal = j.CurrentStage === stages[stages.length - 1];
+    if (activeChip === 'working' && isFinal) return false;
+    if (activeChip === 'final' && !isFinal) return false;
+    if (activeChip.startsWith('cat:') && j.ServiceCategory !== activeChip.slice(4)) return false;
+    if (search) {
+      const hay = (j.VehicleNo + ' ' + j.CustomerName).toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+  document.getElementById('jobCountLbl').textContent = jobs.length + ' open';
+
+  const listEl = document.getElementById('jobList');
+  if (visible.length === 0) {
+    listEl.innerHTML = '<div class="emptystate">No jobs match this view.<br>Tap + to create a new intake.</div>';
+    return;
+  }
+  listEl.innerHTML = visible.map(renderDocket).join('');
+}
+
+function renderDocket(j) {
+  const stages = lists.stageFlows[j.ServiceCategory] || [];
+  const idx = stages.indexOf(j.CurrentStage);
+  const isFinal = idx === stages.length - 1;
+  const stampClass = isFinal ? 'green' : (idx <= 1 ? 'amber' : '');
+  const stampTxt = isFinal ? 'DELIVERED' : j.CurrentStage.toUpperCase();
+  const intakeDate = j.StageTimestamps && j.StageTimestamps[stages[0]] ? j.StageTimestamps[stages[0]].split(' ')[0] : (j.IntakeDate || '');
+  const days = daysSince(intakeDate);
+
+  const nodes = stages.map((s, i) => {
+    let cls = 'stagenode';
+    if (i < idx) cls += ' done'; else if (i === idx) cls += ' now';
+    return `<div class="${cls}">${i > 0 ? '<div class="stageline"></div>' : ''}<div class="tick">${i < idx ? '✓' : i + 1}</div><div class="lbl">${s}</div></div>`;
+  }).join('');
+
+  return `
+  <div class="docket" onclick="openJobDetail('${j.JobID}')">
+    <div class="stamp ${stampClass}">${stampTxt}</div>
+    <div class="docket-top">
+      <div class="veh">${j.VehicleNo}</div>
+      <div class="cust">${j.CustomerName || ''}</div>
+    </div>
+    <div style="padding:0 14px 10px;"><span class="catbadge">${j.ServiceCategory}</span></div>
+    <div class="perf"></div>
+    <div class="docket-bottom">
+      <div class="stagebar">${nodes}</div>
+      <div class="docket-foot">
+        <span class="daychip">Day ${days} in shop</span>
+        <span>${j.Mechanic ? 'Assigned: ' + j.Mechanic : 'Unassigned'}</span>
+      </div>
+    </div>
+  </div>`;
+}
+function daysSince(dateStr) {
+  if (!dateStr) return 0;
+  const d = new Date(dateStr);
+  if (isNaN(d)) return 0;
+  return Math.max(1, Math.floor((Date.now() - d.getTime()) / 86400000) + 1);
+}
+
+// ====== ADD JOB ======
+function openAddJob() {
+  document.getElementById('njJobId').value = '';
+  document.getElementById('njVehicleNo').value = '';
+  document.getElementById('njCustomer').value = '';
+  document.getElementById('njPhone').value = '';
+  previewStages();
+  document.getElementById('addJobModal').classList.remove('hidden');
+}
+function submitAddJob() {
+  const p = {
+    jobId: document.getElementById('njJobId').value.trim(),
+    vehicleNo: document.getElementById('njVehicleNo').value.trim(),
+    customerName: document.getElementById('njCustomer').value.trim(),
+    phone: document.getElementById('njPhone').value.trim(),
+    vehicleType: document.getElementById('njVehicleType').value,
+    serviceCategory: document.getElementById('njCategory').value,
+    model: document.getElementById('njModel').value,
+    createdBy: currentUser.username
+  };
+  if (!p.jobId || !p.vehicleNo || !p.customerName || !p.phone) { toast('Fill all required fields'); return; }
+  apiGet('addJob', p).then(res => {
+    if (!res.success) { toast(res.error || 'Could not create job'); return; }
+    toast('Job card created');
+    closeModal('addJobModal');
+    loadJobs();
+  });
+}
+
+// ====== JOB DETAIL ======
+function openJobDetail(jobId) {
+  activeJobId = jobId;
+  const j = jobs.find(x => x.JobID === jobId);
+  if (!j) return;
+  const stages = lists.stageFlows[j.ServiceCategory] || [];
+  const idx = stages.indexOf(j.CurrentStage);
+  const isFinal = idx === stages.length - 1;
+
+  document.getElementById('jdVeh').textContent = j.VehicleNo;
+  document.getElementById('jdSub').textContent = `Job #${j.JobID} · ${j.ServiceCategory}`;
+  document.getElementById('jdStageBar').innerHTML = stages.map((s, i) => {
+    let cls = 'stagenode';
+    if (i < idx) cls += ' done'; else if (i === idx) cls += ' now';
+    return `<div class="${cls}">${i > 0 ? '<div class="stageline"></div>' : ''}<div class="tick">${i < idx ? '✓' : i + 1}</div><div class="lbl">${s}</div></div>`;
+  }).join('');
+  document.getElementById('jdMechanic').value = j.Mechanic || lists.mechanics[0];
+  document.getElementById('jdMechanic').onchange = () => {
+    apiGet('assignMechanic', {
+      jobId: j.JobID, mechanic: document.getElementById('jdMechanic').value,
+      supervisor: currentUser.role === 'Supervisor' ? currentUser.fullName : '', changedBy: currentUser.username
+    }).then(() => { toast('Mechanic updated'); loadJobs(); });
+  };
+
+  const nextBtn = document.getElementById('jdNextBtn');
+  nextBtn.disabled = isFinal;
+  nextBtn.textContent = isFinal ? 'DELIVERED — JOB COMPLETE' : ('MARK: ' + (stages[idx + 1] || '') + ' →');
+
+  document.getElementById('historyPanel').classList.add('hidden');
+  document.getElementById('histArrow').textContent = '›';
+  renderPhotos(j);
+
+  document.getElementById('jobDetailModal').classList.remove('hidden');
+}
+
+function moveNextStage() {
+  if (!confirm('Move this job to the next stage?')) return;
+  apiGet('updateStage', { jobId: activeJobId, changedBy: currentUser.username }).then(res => {
+    if (!res.success) { toast(res.error || 'Could not update'); return; }
+    toast('Moved to ' + res.currentStage);
+    loadJobs();
+    closeModal('jobDetailModal');
+  });
+}
+
+function toggleHistory() {
+  const panel = document.getElementById('historyPanel');
+  const arrow = document.getElementById('histArrow');
+  if (panel.classList.contains('hidden')) {
+    apiGet('getJobHistory', { jobId: activeJobId }).then(rows => {
+      panel.innerHTML = rows.length
+        ? rows.map(r => `<div class="histrow"><span>${r.PreviousStage || '—'} → ${r.NewStage}</span><span class="who">${r.ChangedBy || ''} · ${r.Timestamp}</span></div>`).join('')
+        : '<div style="font-size:12px; color:var(--ink-soft);">No history yet.</div>';
+      panel.classList.remove('hidden');
+      arrow.textContent = '⌄';
+    });
+  } else {
+    panel.classList.add('hidden');
+    arrow.textContent = '›';
+  }
+}
+
+// ====== PHOTOS ======
+function renderPhotos(j) {
+  apiGet('getJobPhotos', { jobId: j.JobID }).then(photos => {
+    const thumbs = photos.map(p => `<div class="photothumb"><img src="${p.PhotoURL}"></div>`).join('');
+    document.getElementById('jdPhotos').innerHTML = thumbs + `<div class="photothumb" onclick="document.getElementById('jdPhotoInput').click()">+</div>`;
+  });
+}
+function handlePhotoSelected() {
+  const input = document.getElementById('jdPhotoInput');
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const base64 = reader.result.split(',')[1];
+    const j = jobs.find(x => x.JobID === activeJobId);
+    apiPost({
+      action: 'uploadPhoto', jobId: activeJobId, stageName: j.CurrentStage,
+      uploadedBy: currentUser.username, base64: base64, mimeType: file.type, fileName: activeJobId + '_' + Date.now()
+    }).then(res => {
+      if (res.success) { toast('Photo uploaded'); renderPhotos(j); }
+      else toast(res.error || 'Upload failed');
+    });
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+// ====== MODAL HELPERS ======
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+</script>
+</body>
+</html>

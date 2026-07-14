@@ -363,7 +363,7 @@ function renderDocket(j) {
   }).join('');
 
   return `
-  <div class="docket" onclick="openJobDetail('${j.JobID}')">
+  <div class="docket" onclick="openJobDetail('${String(j.JobID)}')">
     <div class="stamp ${stampClass}">${stampTxt}</div>
     <div class="docket-top">
       <div class="veh">${j.VehicleNo}</div>
@@ -419,8 +419,8 @@ function submitAddJob() {
 // ====== JOB DETAIL ======
 function openJobDetail(jobId) {
   activeJobId = jobId;
-  const j = jobs.find(x => x.JobID === jobId);
-  if (!j) return;
+  const j = jobs.find(x => String(x.JobID) === String(jobId));
+  if (!j) { toast('Could not find that job — try tapping Sync then again'); return; }
   const stages = lists.stageFlows[j.ServiceCategory] || [];
   const idx = stages.indexOf(j.CurrentStage);
   const isFinal = idx === stages.length - 1;
@@ -492,7 +492,7 @@ function handlePhotoSelected() {
   const reader = new FileReader();
   reader.onload = () => {
     const base64 = reader.result.split(',')[1];
-    const j = jobs.find(x => x.JobID === activeJobId);
+    const j = jobs.find(x => String(x.JobID) === String(activeJobId));
     apiPost({
       action: 'uploadPhoto', jobId: activeJobId, stageName: j.CurrentStage,
       uploadedBy: currentUser.username, base64: base64, mimeType: file.type, fileName: activeJobId + '_' + Date.now()

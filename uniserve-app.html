@@ -121,6 +121,26 @@
   .histrow .who{color:var(--ink-soft); font-size:11px;}
   .toast{position:fixed; bottom:26px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--bg);
     padding:10px 18px; border-radius:20px; font-size:12.5px; z-index:200; box-shadow:var(--shadow);}
+
+  /* ---- stock ---- */
+  .stockrow{display:flex; justify-content:space-between; align-items:center; background:var(--surface); border:1px solid var(--border);
+    border-radius:10px; padding:11px 13px; box-shadow:var(--shadow);}
+  .stockrow .name{font-size:13px; font-weight:600;}
+  .stockrow .code{font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-soft); margin-top:2px;}
+  .qtybadge{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; padding:5px 10px; border-radius:7px;
+    background:var(--green-bg); color:var(--green); cursor:pointer; white-space:nowrap;}
+  .qtybadge.low{background:var(--red-bg); color:var(--red);}
+
+  /* ---- billing ---- */
+  .lineitem{display:flex; justify-content:space-between; font-size:12.5px; padding:7px 0; border-bottom:1px dashed var(--border);}
+  .lineitem:last-child{border-bottom:none;}
+  .lineitem .amt{font-family:'IBM Plex Mono',monospace; font-weight:600;}
+  .paystamp{display:inline-block; border:2.5px solid var(--red); color:var(--red); font-family:'Bebas Neue',sans-serif;
+    font-size:13px; padding:4px 10px; border-radius:6px; transform:rotate(-4deg); text-transform:uppercase;}
+  .paystamp.paid{border-color:var(--green); color:var(--green);}
+  .paystamp.partial{border-color:var(--amber-deep); color:var(--amber-deep);}
+  .wa-btn{background:var(--green); color:#fff; text-align:center; padding:13px; border-radius:10px; font-weight:700;
+    font-size:13px; cursor:pointer; border:none; width:100%;}
 </style>
 </head>
 <body>
@@ -142,6 +162,7 @@
       <div class="appheader-row">
         <div class="apptitle">Job List<small id="jobCountLbl">0 open</small></div>
         <div class="icons">
+          <div class="iconbtn" onclick="openStock()">📦</div>
           <div class="iconbtn" onclick="toggleTheme()">🌓</div>
           <div class="iconbtn" onclick="loadJobs()">🔄</div>
           <div class="iconbtn" onclick="logout()">⎋</div>
@@ -204,9 +225,130 @@
         <div class="photorow" id="jdPhotos"></div>
         <input type="file" id="jdPhotoInput" accept="image/*" capture="environment" class="hidden" onchange="handlePhotoSelected()">
       </div>
+      <div class="row-btn" onclick="openAddParts()"><span>🔧 Add Parts Used</span><span class="arrow">›</span></div>
+      <div class="row-btn" onclick="openLogHours()"><span>⏱ Log Manpower Hours</span><span class="arrow">›</span></div>
+      <div class="row-btn" onclick="openBilling()"><span>🧾 View / Create Invoice</span><span class="arrow">›</span></div>
       <div class="row-btn" onclick="toggleHistory()"><span>🕘 View Full History</span><span class="arrow" id="histArrow">›</span></div>
       <div class="panel hidden" id="historyPanel"></div>
       <button class="primary-cta" id="jdNextBtn" onclick="moveNextStage()">MOVE TO NEXT STAGE →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD PARTS MODAL -->
+<div class="modal-overlay hidden" id="addPartsModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Add Parts Used</div>
+      <div class="iconbtn" onclick="closeModal('addPartsModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Part</label><select id="apPartSelect" onchange="updatePartPreview()"></select></div>
+      <div class="field"><label>Quantity</label><input id="apQty" type="number" min="1" value="1" oninput="updatePartPreview()"></div>
+      <div class="panel"><div class="section-title">Line Total</div><div id="apPreview" style="font-family:'IBM Plex Mono',monospace; font-size:16px; font-weight:700;">₹ 0</div></div>
+      <button class="primary-cta" onclick="submitAddParts()">ADD TO JOB BILL</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOG HOURS MODAL -->
+<div class="modal-overlay hidden" id="logHoursModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Log Manpower Hours</div>
+      <div class="iconbtn" onclick="closeModal('logHoursModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Mechanic</label><select id="lhMechanic" onchange="prefillRate()"></select></div>
+      <div class="field"><label>Hours</label><input id="lhHours" type="number" min="0.5" step="0.5" value="1"></div>
+      <div class="field"><label>Rate per Hour (₹)</label><input id="lhRate" type="number" min="0" value="0"></div>
+      <button class="primary-cta" onclick="submitLogHours()">ADD TO JOB BILL</button>
+    </div>
+  </div>
+</div>
+
+<!-- BILLING / INVOICE MODAL -->
+<div class="modal-overlay hidden" id="billingModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Invoice</div>
+      <div class="iconbtn" onclick="closeModal('billingModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="panel">
+        <div class="section-title">Parts</div>
+        <div id="billPartsLines" style="font-size:12.5px;"></div>
+        <div class="section-title" style="margin-top:12px;">Labour &amp; Manpower</div>
+        <div id="billLabourLines" style="font-size:12.5px;"></div>
+        <div class="field" style="margin-top:12px;"><label>Service Charge (₹)</label><input id="billServiceCharge" type="number" value="0" oninput="recalcInvoice()"></div>
+        <div class="field"><label>Discount (₹)</label><input id="billDiscount" type="number" value="0" oninput="recalcInvoice()"></div>
+        <div class="field"><label>Tax (%)</label><input id="billTaxPercent" type="number" value="0" oninput="recalcInvoice()"></div>
+        <div style="display:flex; justify-content:space-between; padding-top:10px; margin-top:4px; border-top:2px solid var(--ink); font-family:'Bebas Neue',sans-serif; font-size:19px;">
+          <span>TOTAL</span><span id="billGrandTotal">₹ 0</span>
+        </div>
+        <div id="billStampWrap" style="margin-top:10px;"></div>
+      </div>
+      <button class="primary-cta" onclick="submitGenerateInvoice()">SAVE INVOICE</button>
+      <button class="wa-btn" onclick="shareInvoiceWhatsApp()">SHARE INVOICE ON WHATSAPP</button>
+      <div class="panel" id="paymentPanel" style="display:none;">
+        <div class="section-title">Record Payment</div>
+        <div class="field"><label>Amount Received (₹)</label><input id="billAmountReceived" type="number" value="0"></div>
+        <div class="field"><label>Status</label>
+          <select id="billPaymentStatus"><option>Unpaid</option><option>Partial</option><option>Paid</option></select>
+        </div>
+        <button class="primary-cta" onclick="submitPayment()">UPDATE PAYMENT</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STOCK MODAL -->
+<div class="modal-overlay hidden" id="stockModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Stock</div>
+      <div class="iconbtn" onclick="closeModal('stockModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="row-btn" onclick="openNewPart()"><span>+ Add New Part</span><span class="arrow">›</span></div>
+      <div id="stockList" style="display:flex; flex-direction:column; gap:10px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- NEW / EDIT PART MODAL -->
+<div class="modal-overlay hidden" id="newPartModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="newPartTitle">Add Part</div>
+      <div class="iconbtn" onclick="closeModal('newPartModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Part Code</label><input id="npCode"></div>
+      <div class="field"><label>Part Name</label><input id="npName"></div>
+      <div class="field"><label>Category</label><input id="npCategory"></div>
+      <div class="field"><label>Qty on Hand</label><input id="npQty" type="number" value="0"></div>
+      <div class="field"><label>Reorder Level</label><input id="npReorder" type="number" value="0"></div>
+      <div class="field"><label>Unit Cost (₹)</label><input id="npCost" type="number" value="0"></div>
+      <div class="field"><label>Unit Price (₹)</label><input id="npPrice" type="number" value="0"></div>
+      <div class="field"><label>Supplier</label><input id="npSupplier"></div>
+      <button class="primary-cta" onclick="submitNewPart()">SAVE PART</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADJUST STOCK MODAL -->
+<div class="modal-overlay hidden" id="adjustStockModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Adjust Stock</div>
+      <div class="iconbtn" onclick="closeModal('adjustStockModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="panel" id="adjustPartInfo"></div>
+      <div class="field"><label>Quantity Change (use −5 to reduce, 5 to add)</label><input id="asQtyChange" type="number" value="0"></div>
+      <div class="field"><label>Reason</label><input id="asReason" placeholder="e.g. Stock-take correction"></div>
+      <button class="primary-cta" onclick="submitAdjustStock()">SAVE ADJUSTMENT</button>
     </div>
   </div>
 </div>
@@ -217,10 +359,13 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbxmacnSQXjbpGlV31lKcY4J
 
 // ====== STATE ======
 let currentUser = null;   // {username, fullName, role}
-let lists = { mechanics: [], serviceCategories: [], models: [], vehicleTypes: [], stageFlows: {} };
+let lists = { mechanics: [], serviceCategories: [], models: [], vehicleTypes: [], stageFlows: {}, mechanicRates: {} };
 let jobs = [];
 let activeChip = 'all';
 let activeJobId = null;
+let stockItems = [];
+let activePartCode = null;
+let currentBilling = { partsTotal: 0, labourTotal: 0 };
 
 // ====== API HELPERS ======
 function apiGet(action, params) {
@@ -507,6 +652,238 @@ function handlePhotoSelected() {
 
 // ====== MODAL HELPERS ======
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+// ====== STOCK ======
+function openStock() {
+  apiGet('getStockItems').then(res => {
+    stockItems = res;
+    renderStockList();
+    document.getElementById('stockModal').classList.remove('hidden');
+  });
+}
+function renderStockList() {
+  const listEl = document.getElementById('stockList');
+  if (!stockItems.length) {
+    listEl.innerHTML = '<div class="emptystate">No parts yet. Tap "+ Add New Part" above.</div>';
+    return;
+  }
+  listEl.innerHTML = stockItems.map(s => {
+    const low = Number(s.QtyOnHand) <= Number(s.ReorderLevel);
+    return `<div class="stockrow">
+      <div onclick="openNewPart('${s.PartCode}')" style="cursor:pointer;">
+        <div class="name">${s.PartName}</div>
+        <div class="code">${s.PartCode}${s.Supplier ? ' · ' + s.Supplier : ''}</div>
+      </div>
+      <div class="qtybadge ${low ? 'low' : ''}" onclick="openAdjustStock('${s.PartCode}')">${s.QtyOnHand} left</div>
+    </div>`;
+  }).join('');
+}
+function openNewPart(partCode) {
+  const item = partCode ? stockItems.find(s => String(s.PartCode) === String(partCode)) : null;
+  document.getElementById('newPartTitle').textContent = item ? 'Edit Part' : 'Add Part';
+  document.getElementById('npCode').value = item ? item.PartCode : '';
+  document.getElementById('npCode').disabled = !!item;
+  document.getElementById('npName').value = item ? item.PartName : '';
+  document.getElementById('npCategory').value = item ? item.Category : '';
+  document.getElementById('npQty').value = item ? item.QtyOnHand : 0;
+  document.getElementById('npQty').disabled = !!item; // qty changes go through Adjust Stock, to keep a movement trail
+  document.getElementById('npReorder').value = item ? item.ReorderLevel : 0;
+  document.getElementById('npCost').value = item ? item.UnitCost : 0;
+  document.getElementById('npPrice').value = item ? item.UnitPrice : 0;
+  document.getElementById('npSupplier').value = item ? item.Supplier : '';
+  document.getElementById('newPartModal').classList.remove('hidden');
+}
+function submitNewPart() {
+  const p = {
+    partCode: document.getElementById('npCode').value.trim(),
+    partName: document.getElementById('npName').value.trim(),
+    category: document.getElementById('npCategory').value.trim(),
+    qtyOnHand: document.getElementById('npQty').value,
+    reorderLevel: document.getElementById('npReorder').value,
+    unitCost: document.getElementById('npCost').value,
+    unitPrice: document.getElementById('npPrice').value,
+    supplier: document.getElementById('npSupplier').value.trim(),
+    username: currentUser.username
+  };
+  if (!p.partCode || !p.partName) { toast('Part Code and Part Name are required'); return; }
+  apiGet('upsertStockItem', p).then(res => {
+    if (!res.success) { toast(res.error || 'Could not save part'); return; }
+    toast('Part saved');
+    closeModal('newPartModal');
+    openStock();
+  });
+}
+function openAdjustStock(partCode) {
+  activePartCode = partCode;
+  const item = stockItems.find(s => String(s.PartCode) === String(partCode));
+  document.getElementById('adjustPartInfo').innerHTML =
+    `<div class="section-title">${item.PartName}</div><div style="font-family:'IBM Plex Mono',monospace; font-size:15px;">Currently: ${item.QtyOnHand} on hand</div>`;
+  document.getElementById('asQtyChange').value = 0;
+  document.getElementById('asReason').value = '';
+  document.getElementById('adjustStockModal').classList.remove('hidden');
+}
+function submitAdjustStock() {
+  const qtyChange = Number(document.getElementById('asQtyChange').value);
+  if (!qtyChange) { toast('Enter a non-zero quantity change'); return; }
+  apiGet('adjustStockQty', {
+    partCode: activePartCode, qtyChange: qtyChange,
+    reason: document.getElementById('asReason').value.trim() || 'Manual adjustment',
+    username: currentUser.username
+  }).then(res => {
+    if (!res.success) { toast(res.error || 'Could not adjust stock'); return; }
+    toast('Stock updated — now ' + res.newQty);
+    closeModal('adjustStockModal');
+    openStock();
+  });
+}
+
+// ====== ADD PARTS TO JOB ======
+function openAddParts() {
+  const loadAndShow = () => {
+    fillSelect('apPartSelect', []); // clear
+    const el = document.getElementById('apPartSelect');
+    el.innerHTML = stockItems.map(s => `<option value="${s.PartCode}">${s.PartName} (${s.QtyOnHand} in stock)</option>`).join('');
+    document.getElementById('apQty').value = 1;
+    updatePartPreview();
+    document.getElementById('addPartsModal').classList.remove('hidden');
+  };
+  if (stockItems.length) loadAndShow();
+  else apiGet('getStockItems').then(res => { stockItems = res; loadAndShow(); });
+}
+function updatePartPreview() {
+  const code = document.getElementById('apPartSelect').value;
+  const qty = Number(document.getElementById('apQty').value) || 0;
+  const item = stockItems.find(s => String(s.PartCode) === String(code));
+  const total = item ? qty * Number(item.UnitPrice) : 0;
+  document.getElementById('apPreview').textContent = '₹ ' + total.toFixed(2);
+}
+function submitAddParts() {
+  const p = {
+    jobId: activeJobId,
+    partCode: document.getElementById('apPartSelect').value,
+    qty: document.getElementById('apQty').value,
+    usedBy: currentUser.username
+  };
+  apiGet('addPartsUsed', p).then(res => {
+    if (!res.success) { toast(res.error || 'Could not add part'); return; }
+    toast('Added to job bill: ₹' + res.lineTotal.toFixed(2));
+    closeModal('addPartsModal');
+  });
+}
+
+// ====== LOG LABOUR HOURS ======
+function openLogHours() {
+  fillSelect('lhMechanic', lists.mechanics);
+  document.getElementById('lhHours').value = 1;
+  prefillRate();
+  document.getElementById('logHoursModal').classList.remove('hidden');
+}
+function prefillRate() {
+  const mech = document.getElementById('lhMechanic').value;
+  document.getElementById('lhRate').value = (lists.mechanicRates && lists.mechanicRates[mech]) || 0;
+}
+function submitLogHours() {
+  const p = {
+    jobId: activeJobId,
+    mechanic: document.getElementById('lhMechanic').value,
+    hours: document.getElementById('lhHours').value,
+    ratePerHour: document.getElementById('lhRate').value,
+    loggedBy: currentUser.username
+  };
+  apiGet('logLabourHours', p).then(res => {
+    if (!res.success) { toast(res.error || 'Could not log hours'); return; }
+    toast('Added to job bill: ₹' + res.lineTotal.toFixed(2));
+    closeModal('logHoursModal');
+  });
+}
+
+// ====== BILLING / INVOICE ======
+function openBilling() {
+  Promise.all([apiGet('getJobBilling', { jobId: activeJobId }), apiGet('getInvoice', { jobId: activeJobId })])
+    .then(([billing, invoice]) => {
+      currentBilling = billing;
+      document.getElementById('billPartsLines').innerHTML = billing.parts.length
+        ? billing.parts.map(p => `<div class="lineitem"><span>${p.PartName} × ${p.Qty}</span><span class="amt">₹${Number(p.LineTotal).toFixed(2)}</span></div>`).join('')
+        : '<div style="font-size:12px; color:var(--ink-soft);">No parts added yet.</div>';
+      document.getElementById('billLabourLines').innerHTML = billing.labour.length
+        ? billing.labour.map(l => `<div class="lineitem"><span>${l.Mechanic} — ${l.HoursLogged} hrs @ ₹${l.RatePerHour}/hr</span><span class="amt">₹${Number(l.LineTotal).toFixed(2)}</span></div>`).join('')
+        : '<div style="font-size:12px; color:var(--ink-soft);">No labour logged yet.</div>';
+
+      document.getElementById('billServiceCharge').value = invoice ? invoice.ServiceCharge : 0;
+      document.getElementById('billDiscount').value = invoice ? invoice.Discount : 0;
+      document.getElementById('billTaxPercent').value = invoice ? invoice.TaxPercent : 0;
+      recalcInvoice();
+
+      const paymentPanel = document.getElementById('paymentPanel');
+      if (invoice) {
+        paymentPanel.style.display = 'block';
+        document.getElementById('billAmountReceived').value = invoice.AmountReceived || 0;
+        document.getElementById('billPaymentStatus').value = invoice.PaymentStatus || 'Unpaid';
+        renderPayStamp(invoice.PaymentStatus || 'Unpaid');
+      } else {
+        paymentPanel.style.display = 'none';
+        document.getElementById('billStampWrap').innerHTML = '';
+      }
+
+      document.getElementById('billingModal').classList.remove('hidden');
+    });
+}
+function recalcInvoice() {
+  const serviceCharge = Number(document.getElementById('billServiceCharge').value) || 0;
+  const discount = Number(document.getElementById('billDiscount').value) || 0;
+  const taxPercent = Number(document.getElementById('billTaxPercent').value) || 0;
+  const subtotal = currentBilling.partsTotal + currentBilling.labourTotal + serviceCharge - discount;
+  const tax = subtotal * (taxPercent / 100);
+  const grand = subtotal + tax;
+  document.getElementById('billGrandTotal').textContent = '₹ ' + grand.toFixed(2);
+  return grand;
+}
+function renderPayStamp(status) {
+  const cls = status === 'Paid' ? 'paid' : (status === 'Partial' ? 'partial' : '');
+  document.getElementById('billStampWrap').innerHTML = `<div class="paystamp ${cls}">${status.toUpperCase()}</div>`;
+}
+function submitGenerateInvoice() {
+  const p = {
+    jobId: activeJobId,
+    serviceCharge: document.getElementById('billServiceCharge').value,
+    discount: document.getElementById('billDiscount').value,
+    taxPercent: document.getElementById('billTaxPercent').value,
+    createdBy: currentUser.username
+  };
+  apiGet('generateInvoice', p).then(res => {
+    if (!res.success) { toast(res.error || 'Could not save invoice'); return; }
+    toast('Invoice saved');
+    document.getElementById('paymentPanel').style.display = 'block';
+    document.getElementById('billAmountReceived').value = res.invoice.amountReceived || 0;
+    document.getElementById('billPaymentStatus').value = res.invoice.paymentStatus || 'Unpaid';
+    renderPayStamp(res.invoice.paymentStatus || 'Unpaid');
+  });
+}
+function submitPayment() {
+  const p = {
+    jobId: activeJobId,
+    paymentStatus: document.getElementById('billPaymentStatus').value,
+    amountReceived: document.getElementById('billAmountReceived').value
+  };
+  apiGet('updatePayment', p).then(res => {
+    if (!res.success) { toast(res.error || 'Could not update payment'); return; }
+    toast('Payment updated');
+    renderPayStamp(p.paymentStatus);
+  });
+}
+function shareInvoiceWhatsApp() {
+  const j = jobs.find(x => String(x.JobID) === String(activeJobId));
+  const grand = recalcInvoice();
+  let lines = [`*UniServe — Invoice*`, `Vehicle: ${j.VehicleNo}`, `Customer: ${j.CustomerName}`, ``, `*Parts:*`];
+  currentBilling.parts.forEach(p => lines.push(`${p.PartName} x${p.Qty} — ₹${Number(p.LineTotal).toFixed(2)}`));
+  lines.push('', '*Labour:*');
+  currentBilling.labour.forEach(l => lines.push(`${l.Mechanic} (${l.HoursLogged} hrs) — ₹${Number(l.LineTotal).toFixed(2)}`));
+  lines.push('', `*Total: ₹${grand.toFixed(2)}*`);
+  const text = encodeURIComponent(lines.join('\n'));
+  const phone = j.Phone ? ('91' + String(j.Phone).replace(/\D/g, '').slice(-10)) : '';
+  window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
+}
+
 </script>
 </body>
 </html>

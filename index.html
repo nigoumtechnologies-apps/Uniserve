@@ -162,7 +162,7 @@
       <div class="appheader-row">
         <div class="apptitle">Job List<small id="jobCountLbl">0 open</small></div>
         <div class="icons">
-          <div class="iconbtn" onclick="openStock()">📦</div>
+          <div class="iconbtn" id="stockIconBtn" onclick="openStock()">📦</div>
           <div class="iconbtn" onclick="toggleTheme()">🌓</div>
           <div class="iconbtn" onclick="loadJobs()">🔄</div>
           <div class="iconbtn" onclick="logout()">⎋</div>
@@ -225,9 +225,9 @@
         <div class="photorow" id="jdPhotos"></div>
         <input type="file" id="jdPhotoInput" accept="image/*" capture="environment" class="hidden" onchange="handlePhotoSelected()">
       </div>
-      <div class="row-btn" onclick="openAddParts()"><span>🔧 Add Parts Used</span><span class="arrow">›</span></div>
-      <div class="row-btn" onclick="openLogHours()"><span>⏱ Log Manpower Hours</span><span class="arrow">›</span></div>
-      <div class="row-btn" onclick="openBilling()"><span>🧾 View / Create Invoice</span><span class="arrow">›</span></div>
+      <div class="row-btn" id="addPartsRow" onclick="openAddParts()"><span>🔧 Add Parts Used</span><span class="arrow">›</span></div>
+      <div class="row-btn" id="logHoursRow" onclick="openLogHours()"><span>⏱ Log Manpower Hours</span><span class="arrow">›</span></div>
+      <div class="row-btn" id="billingRow" onclick="openBilling()"><span>🧾 View / Create Invoice</span><span class="arrow">›</span></div>
       <div class="row-btn" onclick="toggleHistory()"><span>🕘 View Full History</span><span class="arrow" id="histArrow">›</span></div>
       <div class="panel hidden" id="historyPanel"></div>
       <button class="primary-cta" id="jdNextBtn" onclick="moveNextStage()">MOVE TO NEXT STAGE →</button>
@@ -371,10 +371,12 @@ let currentBilling = { partsTotal: 0, labourTotal: 0 };
 function apiGet(action, params) {
   params = params || {};
   params.action = action;
+  if (action !== 'login' && currentUser && currentUser.shopId) params.shopId = currentUser.shopId;
   const qs = Object.keys(params).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k])).join('&');
   return fetch(GAS_URL + '?' + qs).then(r => r.json());
 }
 function apiPost(payload) {
+  if (currentUser && currentUser.shopId) payload.shopId = currentUser.shopId;
   return fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) }).then(r => r.json());
 }
 function toast(msg) {
@@ -420,7 +422,15 @@ function logout() {
 function enterApp() {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('mainApp').classList.remove('hidden');
+  applyAddOnVisibility();
   loadInitialData();
+}
+function applyAddOnVisibility() {
+  const hasStockBilling = currentUser.addOns && currentUser.addOns.includes('StockBilling');
+  document.getElementById('stockIconBtn').classList.toggle('hidden', !hasStockBilling);
+  document.getElementById('addPartsRow').classList.toggle('hidden', !hasStockBilling);
+  document.getElementById('logHoursRow').classList.toggle('hidden', !hasStockBilling);
+  document.getElementById('billingRow').classList.toggle('hidden', !hasStockBilling);
 }
 (function restoreSession() {
   const saved = localStorage.getItem('uniserve_session');
@@ -482,7 +492,7 @@ function renderJobs() {
     }
     return true;
   });
-  document.getElementById('jobCountLbl').textContent = jobs.length + ' open';
+  document.getElementById('jobCountLbl').textContent = currentUser.shopName + ' · ' + jobs.length + ' open';
 
   const listEl = document.getElementById('jobList');
   if (visible.length === 0) {

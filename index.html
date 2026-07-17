@@ -218,6 +218,10 @@
     <div class="modal-body">
       <div class="field"><label>Shop ID</label><input id="sfShopId" placeholder="e.g. SHOP001"></div>
       <div class="field"><label>Shop Name</label><input id="sfShopName"></div>
+      <div class="field"><label>Owner Name</label><input id="sfOwnerName"></div>
+      <div class="field"><label>Phone</label><input id="sfPhone" inputmode="numeric" maxlength="10"></div>
+      <div class="field"><label>Address</label><input id="sfAddress"></div>
+      <div class="field"><label>GSTIN (optional)</label><input id="sfGstin"></div>
       <div class="panel">
         <div class="section-title">Shop Type (Categories / Stage Flow)</div>
         <div id="sfCategoryCheckboxes"></div>
@@ -509,6 +513,7 @@ function doLogin() {
     currentUser = {
       username, fullName: res.fullName, role: res.role,
       shopId: res.shopId, shopName: res.shopName,
+      ownerName: res.ownerName, phone: res.phone, address: res.address, gstin: res.gstin,
       allowedCategories: res.allowedCategories, addOns: res.addOns
     };
     localStorage.setItem('uniserve_session', JSON.stringify(currentUser));
@@ -600,6 +605,10 @@ function openShopForm(shopId) {
   document.getElementById('sfShopId').value = s ? s.ShopID : '';
   document.getElementById('sfShopId').disabled = !!s;
   document.getElementById('sfShopName').value = s ? s.ShopName : '';
+  document.getElementById('sfOwnerName').value = s ? s.OwnerName : '';
+  document.getElementById('sfPhone').value = s ? s.Phone : '';
+  document.getElementById('sfAddress').value = s ? s.Address : '';
+  document.getElementById('sfGstin').value = s ? s.GSTIN : '';
   document.getElementById('sfAddOns').value = s ? s.AddOns : '';
   document.getElementById('sfStatus').value = s ? s.Status : 'Active';
   document.getElementById('sfExpiryDate').value = s ? s.ExpiryDate : '';
@@ -616,6 +625,10 @@ function submitShopForm() {
     username: superAdmin.username, pin: superAdmin.pin,
     shopId: document.getElementById('sfShopId').value.trim(),
     shopName: document.getElementById('sfShopName').value.trim(),
+    ownerName: document.getElementById('sfOwnerName').value.trim(),
+    phone: document.getElementById('sfPhone').value.trim(),
+    address: document.getElementById('sfAddress').value.trim(),
+    gstin: document.getElementById('sfGstin').value.trim(),
     allowedCategories: checked.join(','),
     addOns: document.getElementById('sfAddOns').value.trim(),
     status: document.getElementById('sfStatus').value,
@@ -1130,7 +1143,11 @@ function submitPayment() {
 function shareInvoiceWhatsApp() {
   const j = jobs.find(x => String(x.JobID) === String(activeJobId));
   const grand = recalcInvoice();
-  let lines = [`*UniServe — Invoice*`, `Vehicle: ${j.VehicleNo}`, `Customer: ${j.CustomerName}`, ``, `*Parts:*`];
+  let lines = [`*${currentUser.shopName}*`];
+  if (currentUser.address) lines.push(currentUser.address);
+  if (currentUser.phone) lines.push('Ph: ' + currentUser.phone);
+  if (currentUser.gstin) lines.push('GSTIN: ' + currentUser.gstin);
+  lines.push('', `*INVOICE*`, `Vehicle: ${j.VehicleNo}`, `Customer: ${j.CustomerName}`, ``, `*Parts:*`);
   currentBilling.parts.forEach(p => lines.push(`${p.PartName} x${p.Qty} — ₹${Number(p.LineTotal).toFixed(2)}`));
   lines.push('', '*Labour:*');
   currentBilling.labour.forEach(l => lines.push(`${l.Mechanic} (${l.HoursLogged} hrs) — ₹${Number(l.LineTotal).toFixed(2)}`));

@@ -56,6 +56,12 @@
   .searchbar{margin-top:12px; background:var(--surface-2); border:1px solid var(--border); border-radius:10px;
     padding:9px 12px; display:flex; gap:8px; align-items:center;}
   .searchbar input{border:none; background:transparent; font-size:13px; color:var(--ink); width:100%; outline:none;}
+  .daterow{display:flex; align-items:center; gap:6px; margin-top:8px;}
+  .daterow input[type=date]{flex:1; min-width:0; background:var(--surface-2); border:1px solid var(--border); border-radius:8px;
+    padding:8px 8px; font-size:11.5px; color:var(--ink); font-family:'IBM Plex Sans';}
+  .daterow span{font-size:11px; color:var(--ink-soft); flex:none;}
+  .clearDateBtn{width:28px; height:28px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; font-size:12px; color:var(--ink-soft); cursor:pointer; flex:none;}
   .chips{display:flex; gap:7px; padding:12px 16px 4px; overflow-x:auto; background:var(--surface);}
   .chip{flex:none; font-size:11.5px; font-weight:600; padding:6px 12px; border-radius:20px; border:1px solid var(--border);
     background:var(--surface-2); color:var(--ink-soft); white-space:nowrap; cursor:pointer;}
@@ -90,7 +96,8 @@
   .docket-foot{display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:11px; color:var(--ink-soft);}
   .daychip{background:var(--surface-2); border:1px solid var(--border); border-radius:6px; padding:3px 7px; font-weight:600;}
 
-  #fab{position:fixed; max-width:480px; margin:0 auto; right:calc(50% - 240px + 20px); bottom:22px; width:54px; height:54px;
+  #fabWrap{position:fixed; left:0; right:0; bottom:0; max-width:480px; margin:0 auto; height:0; pointer-events:none;}
+  #fab{position:absolute; right:20px; bottom:22px; width:54px; height:54px; pointer-events:auto;
     border-radius:16px; background:var(--amber); color:var(--amber-ink); font-size:26px; display:flex; align-items:center; justify-content:center;
     box-shadow:0 8px 20px rgba(0,0,0,.35); font-weight:700; cursor:pointer; z-index:30; border:none;}
 
@@ -149,11 +156,14 @@
   <!-- LOGIN -->
   <div id="loginScreen">
     <div class="plate">UNI<span>SERVE</span></div>
-    <div class="subline">Workshop Access</div>
+    <div class="subline" id="loginSubline">Workshop Access</div>
     <div class="field"><label>Username</label><input id="loginUser" type="text" autocomplete="off"></div>
     <div class="field"><label>PIN</label><input id="loginPin" type="password" inputmode="numeric" maxlength="6"></div>
     <button class="btn-primary" onclick="doLogin()">SIGN IN</button>
     <div id="loginError"></div>
+    <div style="text-align:center; margin-top:16px;">
+      <span id="loginModeLink" style="font-size:11px; color:var(--ink-soft); text-decoration:underline; cursor:pointer;" onclick="toggleLoginMode()">Super Admin Login</span>
+    </div>
   </div>
 
   <!-- MAIN APP -->
@@ -163,18 +173,86 @@
         <div class="apptitle">Job List<small id="jobCountLbl">0 open</small></div>
         <div class="icons">
           <div class="iconbtn" id="stockIconBtn" onclick="openStock()">📦</div>
+          <div class="iconbtn hidden" id="staffIconBtn" onclick="openStaff()">👥</div>
           <div class="iconbtn" onclick="toggleTheme()">🌓</div>
           <div class="iconbtn" onclick="loadJobs()">🔄</div>
           <div class="iconbtn" onclick="logout()">⎋</div>
         </div>
       </div>
       <div class="searchbar">🔍 <input id="searchBox" placeholder="Search vehicle no. or customer" oninput="renderJobs()"></div>
+      <div class="daterow">
+        <input type="date" id="fromDate" onchange="renderJobs()">
+        <span>to</span>
+        <input type="date" id="toDate" onchange="renderJobs()">
+        <div class="clearDateBtn" onclick="clearDateFilter()" title="Clear date filter">✕</div>
+      </div>
     </div>
     <div class="chips" id="chipsRow"></div>
     <div id="jobList"></div>
-    <button id="fab" onclick="openAddJob()">+</button>
+  </div>
+  <div id="fabWrap" class="hidden"><button id="fab" onclick="openAddJob()">+</button></div>
+
+  <!-- SUPER ADMIN CONSOLE -->
+  <div id="superAdminScreen" class="hidden" style="display:flex; flex-direction:column; flex:1;">
+    <div id="appHeader">
+      <div class="appheader-row">
+        <div class="apptitle">Super Admin<small>Manage all shops</small></div>
+        <div class="icons">
+          <div class="iconbtn" onclick="toggleTheme()">🌓</div>
+          <div class="iconbtn" onclick="superAdminLogout()">⎋</div>
+        </div>
+      </div>
+    </div>
+    <div class="body" id="shopsList"></div>
   </div>
 
+</div>
+
+<!-- SHOP FORM MODAL (Super Admin) -->
+<div class="modal-overlay hidden" id="shopFormModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="shopFormTitle">Add Shop</div>
+      <div class="iconbtn" onclick="closeModal('shopFormModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Shop ID</label><input id="sfShopId" placeholder="e.g. SHOP001"></div>
+      <div class="field"><label>Shop Name</label><input id="sfShopName"></div>
+      <div class="panel">
+        <div class="section-title">Shop Type (Categories / Stage Flow)</div>
+        <div id="sfCategoryCheckboxes"></div>
+      </div>
+      <div class="field"><label>Add-Ons (comma separated, e.g. StockBilling)</label><input id="sfAddOns"></div>
+      <div class="field"><label>Status</label>
+        <select id="sfStatus"><option value="Active">Active</option><option value="Suspended">Suspended</option></select>
+      </div>
+      <div class="field"><label>Expiry Date (optional)</label><input type="date" id="sfExpiryDate"></div>
+      <button class="primary-cta" onclick="submitShopForm()">SAVE SHOP</button>
+    </div>
+  </div>
+</div>
+
+<!-- STAFF MODAL (Shop Admin) -->
+<div class="modal-overlay hidden" id="staffModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Shop Staff</div>
+      <div class="iconbtn" onclick="closeModal('staffModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div id="staffList"></div>
+      <div class="panel">
+        <div class="section-title">Add Staff Account</div>
+        <div class="field"><label>Username</label><input id="stNewUsername"></div>
+        <div class="field"><label>PIN</label><input id="stNewPin" inputmode="numeric" maxlength="6"></div>
+        <div class="field"><label>Full Name</label><input id="stFullName"></div>
+        <div class="field"><label>Role</label>
+          <select id="stRole"><option>Mechanic</option><option>Supervisor</option><option>Storekeeper</option><option>Admin</option></select>
+        </div>
+        <button class="primary-cta" onclick="submitAddStaff()">ADD STAFF</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ADD JOB MODAL -->
@@ -401,10 +479,31 @@ function toggleTheme() {
 })();
 
 // ====== SESSION ======
+let loginMode = 'shop'; // 'shop' | 'super'
+let superAdmin = null;
+
+function toggleLoginMode() {
+  loginMode = loginMode === 'shop' ? 'super' : 'shop';
+  document.getElementById('loginSubline').textContent = loginMode === 'shop' ? 'Workshop Access' : 'Super Admin Console';
+  document.getElementById('loginModeLink').textContent = loginMode === 'shop' ? 'Super Admin Login' : 'Shop Login';
+  showLoginError('');
+}
+
 function doLogin() {
   const username = document.getElementById('loginUser').value.trim();
   const pin = document.getElementById('loginPin').value.trim();
   if (!username || !pin) { showLoginError('Enter username and PIN'); return; }
+
+  if (loginMode === 'super') {
+    apiGet('superAdminLogin', { username, pin }).then(res => {
+      if (!res.success) { showLoginError(res.error || 'Login failed'); return; }
+      superAdmin = { username, pin, fullName: res.fullName };
+      localStorage.setItem('uniserve_superadmin', JSON.stringify(superAdmin));
+      enterSuperAdminConsole();
+    }).catch(() => showLoginError('Network error — check GAS_URL'));
+    return;
+  }
+
   apiGet('login', { username, pin }).then(res => {
     if (!res.success) { showLoginError(res.error || 'Login failed'); return; }
     currentUser = {
@@ -421,11 +520,13 @@ function logout() {
   localStorage.removeItem('uniserve_session');
   currentUser = null;
   document.getElementById('mainApp').classList.add('hidden');
+  document.getElementById('fabWrap').classList.add('hidden');
   document.getElementById('loginScreen').classList.remove('hidden');
 }
 function enterApp() {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('mainApp').classList.remove('hidden');
+  document.getElementById('fabWrap').classList.remove('hidden');
   applyAddOnVisibility();
   loadInitialData();
 }
@@ -435,6 +536,7 @@ function applyAddOnVisibility() {
   document.getElementById('addPartsRow').classList.toggle('hidden', !hasStockBilling);
   document.getElementById('logHoursRow').classList.toggle('hidden', !hasStockBilling);
   document.getElementById('billingRow').classList.toggle('hidden', !hasStockBilling);
+  document.getElementById('staffIconBtn').classList.toggle('hidden', currentUser.role !== 'Admin');
 }
 (function restoreSession() {
   const saved = localStorage.getItem('uniserve_session');
@@ -449,6 +551,112 @@ function applyAddOnVisibility() {
     }
   }
 })();
+(function restoreSuperAdminSession() {
+  const saved = localStorage.getItem('uniserve_superadmin');
+  if (saved) { superAdmin = JSON.parse(saved); enterSuperAdminConsole(); }
+})();
+
+// ====== SUPER ADMIN CONSOLE ======
+let shopsList = [];
+let categoryMaster = [];
+
+function enterSuperAdminConsole() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('superAdminScreen').classList.remove('hidden');
+  loadShops();
+}
+function superAdminLogout() {
+  localStorage.removeItem('uniserve_superadmin');
+  superAdmin = null;
+  document.getElementById('superAdminScreen').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+}
+function loadShops() {
+  Promise.all([
+    fetch(GAS_URL + '?action=getShops&username=' + encodeURIComponent(superAdmin.username) + '&pin=' + encodeURIComponent(superAdmin.pin)).then(r => r.json()),
+    fetch(GAS_URL + '?action=getCategoryMaster&username=' + encodeURIComponent(superAdmin.username) + '&pin=' + encodeURIComponent(superAdmin.pin)).then(r => r.json())
+  ]).then(([shopsRes, catRes]) => {
+    shopsList = shopsRes;
+    categoryMaster = catRes;
+    renderShopsList();
+  }).catch(() => toast('Could not load shops — check GAS_URL'));
+}
+function renderShopsList() {
+  const el = document.getElementById('shopsList');
+  const rows = shopsList.map(s => `
+    <div class="stockrow" style="margin-bottom:10px; cursor:pointer;" onclick="openShopForm('${s.ShopID}')">
+      <div>
+        <div class="name">${s.ShopName}</div>
+        <div class="code">${s.ShopID} · ${s.AllowedCategories || 'no categories set'}</div>
+      </div>
+      <div class="qtybadge ${String(s.Status).toLowerCase() === 'active' ? '' : 'low'}">${s.Status}</div>
+    </div>`).join('');
+  el.innerHTML = (rows || '<div class="emptystate">No shops yet. Tap below to add one.</div>')
+    + '<button class="primary-cta" style="margin-top:14px;" onclick="openShopForm(null)">+ ADD SHOP</button>';
+}
+function openShopForm(shopId) {
+  const s = shopId ? shopsList.find(x => x.ShopID === shopId) : null;
+  document.getElementById('shopFormTitle').textContent = s ? 'Edit Shop' : 'Add Shop';
+  document.getElementById('sfShopId').value = s ? s.ShopID : '';
+  document.getElementById('sfShopId').disabled = !!s;
+  document.getElementById('sfShopName').value = s ? s.ShopName : '';
+  document.getElementById('sfAddOns').value = s ? s.AddOns : '';
+  document.getElementById('sfStatus').value = s ? s.Status : 'Active';
+  document.getElementById('sfExpiryDate').value = s ? s.ExpiryDate : '';
+  const selectedCats = s ? String(s.AllowedCategories || '').split(',').map(x => x.trim()) : [];
+  document.getElementById('sfCategoryCheckboxes').innerHTML = categoryMaster.map(c => `
+    <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; padding:5px 0;">
+      <input type="checkbox" value="${c}" ${selectedCats.includes(c) ? 'checked' : ''} class="sfCatCheck"> ${c}
+    </label>`).join('');
+  document.getElementById('shopFormModal').classList.remove('hidden');
+}
+function submitShopForm() {
+  const checked = Array.from(document.querySelectorAll('.sfCatCheck:checked')).map(c => c.value);
+  const p = {
+    username: superAdmin.username, pin: superAdmin.pin,
+    shopId: document.getElementById('sfShopId').value.trim(),
+    shopName: document.getElementById('sfShopName').value.trim(),
+    allowedCategories: checked.join(','),
+    addOns: document.getElementById('sfAddOns').value.trim(),
+    status: document.getElementById('sfStatus').value,
+    expiryDate: document.getElementById('sfExpiryDate').value
+  };
+  if (!p.shopId || !p.shopName) { toast('Shop ID and Shop Name are required'); return; }
+  fetch(GAS_URL + '?' + new URLSearchParams(Object.assign({ action: 'upsertShop' }, p))).then(r => r.json()).then(res => {
+    if (!res.success) { toast(res.error || 'Could not save shop'); return; }
+    toast('Shop saved');
+    closeModal('shopFormModal');
+    loadShops();
+  });
+}
+
+// ====== SHOP ADMIN: STAFF MANAGEMENT ======
+function openStaff() {
+  apiGet('getShopStaff').then(res => {
+    document.getElementById('staffList').innerHTML = res.map(u =>
+      `<div class="lineitem"><span>${u.fullName} (${u.username})</span><span class="amt">${u.role}</span></div>`
+    ).join('') || '<div style="font-size:12px; color:var(--ink-soft);">No staff yet.</div>';
+    document.getElementById('staffModal').classList.remove('hidden');
+  });
+}
+function submitAddStaff() {
+  const p = {
+    adminUsername: currentUser.username,
+    newUsername: document.getElementById('stNewUsername').value.trim(),
+    newPin: document.getElementById('stNewPin').value.trim(),
+    fullName: document.getElementById('stFullName').value.trim(),
+    role: document.getElementById('stRole').value
+  };
+  if (!p.newUsername || !p.newPin || !p.fullName) { toast('Fill all fields'); return; }
+  apiGet('addStaffUser', p).then(res => {
+    if (!res.success) { toast(res.error || 'Could not add staff'); return; }
+    toast('Staff account added');
+    document.getElementById('stNewUsername').value = '';
+    document.getElementById('stNewPin').value = '';
+    document.getElementById('stFullName').value = '';
+    openStaff();
+  });
+}
 
 // ====== INITIAL DATA ======
 function loadInitialData() {
@@ -482,23 +690,48 @@ function previewStages() {
 
 // ====== FILTER CHIPS ======
 function renderChips() {
-  const chips = [{ key: 'all', label: 'All' }, { key: 'working', label: 'Working' }, { key: 'final', label: 'Delivered' }]
-    .concat(lists.serviceCategories.map(c => ({ key: 'cat:' + c, label: c })));
+  const chips = [
+    { key: 'all', label: 'All' },
+    { key: 'today', label: 'Today' },
+    { key: 'prevday', label: 'Previous Day' },
+    { key: 'working', label: 'Working' },
+    { key: 'finished', label: 'Finished' },
+    { key: 'final', label: 'Delivered' }
+  ];
   document.getElementById('chipsRow').innerHTML = chips.map(c =>
     `<div class="chip ${activeChip === c.key ? 'on' : ''}" onclick="setChip('${c.key}')">${c.label}</div>`
   ).join('');
 }
 function setChip(key) { activeChip = key; renderChips(); renderJobs(); }
+function clearDateFilter() {
+  document.getElementById('fromDate').value = '';
+  document.getElementById('toDate').value = '';
+  renderJobs();
+}
 
 // ====== JOB LIST ======
 function renderJobs() {
   const search = document.getElementById('searchBox').value.trim().toLowerCase();
+  const fromDate = document.getElementById('fromDate').value;
+  const toDate = document.getElementById('toDate').value;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const yestStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
   let visible = jobs.filter(j => {
     const stages = lists.stageFlows[j.ServiceCategory] || [];
-    const isFinal = j.CurrentStage === stages[stages.length - 1];
-    if (activeChip === 'working' && isFinal) return false;
+    const idx = stages.indexOf(j.CurrentStage);
+    const isFinal = idx === stages.length - 1;
+    const isFinished = idx === stages.length - 2; // last working stage, before hand-over/delivery
+
+    if (activeChip === 'working' && (isFinal || isFinished)) return false;
+    if (activeChip === 'finished' && !isFinished) return false;
     if (activeChip === 'final' && !isFinal) return false;
-    if (activeChip.startsWith('cat:') && j.ServiceCategory !== activeChip.slice(4)) return false;
+    if (activeChip === 'today' && j.IntakeDate !== todayStr) return false;
+    if (activeChip === 'prevday' && j.IntakeDate !== yestStr) return false;
+
+    if (fromDate && j.IntakeDate && j.IntakeDate < fromDate) return false;
+    if (toDate && j.IntakeDate && j.IntakeDate > toDate) return false;
+
     if (search) {
       const hay = (j.VehicleNo + ' ' + j.CustomerName).toLowerCase();
       if (!hay.includes(search)) return false;

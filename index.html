@@ -355,7 +355,7 @@
 
 <script>
 // ====== CONFIG ======
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwT_L99ROXqWYrhDMUR18dhxjedk55AtxLoDdeby8lHkyanfQVSwAyTLQNS8uBXIFW5cA/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyIsDe8Vs42JuB8jnEKkCAy_soDoDIMY1hHnI3LDJAYtQgwI6tGd_KOJWcNk5913JPd_g/exec';
 
 // ====== STATE ======
 let currentUser = null;   // {username, fullName, role}
@@ -407,7 +407,11 @@ function doLogin() {
   if (!username || !pin) { showLoginError('Enter username and PIN'); return; }
   apiGet('login', { username, pin }).then(res => {
     if (!res.success) { showLoginError(res.error || 'Login failed'); return; }
-    currentUser = { username, fullName: res.fullName, role: res.role };
+    currentUser = {
+      username, fullName: res.fullName, role: res.role,
+      shopId: res.shopId, shopName: res.shopName,
+      allowedCategories: res.allowedCategories, addOns: res.addOns
+    };
     localStorage.setItem('uniserve_session', JSON.stringify(currentUser));
     enterApp();
   }).catch(() => showLoginError('Network error — check GAS_URL'));
@@ -434,7 +438,16 @@ function applyAddOnVisibility() {
 }
 (function restoreSession() {
   const saved = localStorage.getItem('uniserve_session');
-  if (saved) { currentUser = JSON.parse(saved); enterApp(); }
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    if (parsed && parsed.shopId) {
+      currentUser = parsed;
+      enterApp();
+    } else {
+      // Old session from before multi-tenant support — no shopId, discard it.
+      localStorage.removeItem('uniserve_session');
+    }
+  }
 })();
 
 // ====== INITIAL DATA ======

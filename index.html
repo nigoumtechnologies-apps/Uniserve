@@ -155,15 +155,12 @@
 
   <!-- LOGIN -->
   <div id="loginScreen">
-    <div class="plate">UNI<span>SERVE</span></div>
+    <div class="plate" onclick="handleLogoTap()">UNI<span>SERVE</span></div>
     <div class="subline" id="loginSubline">Workshop Access</div>
     <div class="field"><label>Username</label><input id="loginUser" type="text" autocomplete="off"></div>
     <div class="field"><label>PIN</label><input id="loginPin" type="password" inputmode="numeric" maxlength="6"></div>
     <button class="btn-primary" onclick="doLogin()">SIGN IN</button>
     <div id="loginError"></div>
-    <div style="text-align:center; margin-top:16px;">
-      <span id="loginModeLink" style="font-size:11px; color:var(--ink-soft); text-decoration:underline; cursor:pointer;" onclick="toggleLoginMode()">Super Admin Login</span>
-    </div>
   </div>
 
   <!-- MAIN APP -->
@@ -485,12 +482,19 @@ function toggleTheme() {
 // ====== SESSION ======
 let loginMode = 'shop'; // 'shop' | 'super'
 let superAdmin = null;
+let logoTapCount = 0;
+let logoTapTimer = null;
 
-function toggleLoginMode() {
-  loginMode = loginMode === 'shop' ? 'super' : 'shop';
-  document.getElementById('loginSubline').textContent = loginMode === 'shop' ? 'Workshop Access' : 'Super Admin Console';
-  document.getElementById('loginModeLink').textContent = loginMode === 'shop' ? 'Super Admin Login' : 'Shop Login';
-  showLoginError('');
+function handleLogoTap() {
+  logoTapCount++;
+  clearTimeout(logoTapTimer);
+  logoTapTimer = setTimeout(() => { logoTapCount = 0; }, 2500);
+  if (logoTapCount >= 5) {
+    logoTapCount = 0;
+    loginMode = loginMode === 'shop' ? 'super' : 'shop';
+    showLoginError('');
+    toast(loginMode === 'super' ? 'Super admin mode' : 'Shop login mode');
+  }
 }
 
 function doLogin() {
